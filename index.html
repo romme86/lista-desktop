@@ -1,47 +1,230 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <style>
-    body > h1:nth-of-type(1) {
-      cursor: pointer
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Autobase Manager</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-    body {
-      --title-bar-height: 42px;
-      padding-top: var(--title-bar-height);
-        background-color: #fffbf5;
-    }
+        body {
+            --title-bar-height: 42px;
+            padding-top: var(--title-bar-height);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
 
-    #bar {
-      background: rgba(55, 60, 72, 0.6);
-      backdrop-filter: blur(64px);
-      -webkit-app-region: drag;
-      height: var(--title-bar-height);
-      padding: 0;
-      border-top-left-radius: 8px;
-      border-top-right-radius: 8px;
-      color: #FFF;
-      white-space: nowrap;
-      box-sizing: border-box;
-      position: fixed;
-      z-index: 2;
-      width: 100%;
-      left: 0;
-      top: 0;
-    }
+        body > h1:nth-of-type(1) {
+            cursor: pointer;
+        }
 
-    pear-ctrl[data-platform=darwin] {
-      margin-top: 18px;
-      margin-left: 12px;
-    }
-  </style>
-  <script type='module' src='./app.js'></script>
+        #bar {
+            background: rgba(55, 60, 72, 0.95);
+            backdrop-filter: blur(20px);
+            -webkit-app-region: drag;
+            height: var(--title-bar-height);
+            padding: 0 20px;
+            border-top-left-radius: 12px;
+            border-top-right-radius: 12px;
+            color: #FFF;
+            white-space: nowrap;
+            position: fixed;
+            z-index: 1000;
+            width: 100%;
+            left: 0;
+            top: 0;
+            display: flex;
+            align-items: center;
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        pear-ctrl[data-platform=darwin] {
+            margin-top: 18px;
+            margin-left: 12px;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: slideIn 0.5s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        h2 {
+            color: #667eea;
+            margin-bottom: 30px;
+            text-align: center;
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        form {
+            margin-bottom: 24px;
+            padding: 24px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        form:hover {
+            border-color: #667eea;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.1);
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #4a5568;
+            font-weight: 600;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        input[type="text"],
+        textarea {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 15px;
+            transition: all 0.3s ease;
+            font-family: inherit;
+            background: white;
+        }
+
+        input[type="text"]:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+
+        button[type="submit"] {
+            width: 100%;
+            padding: 14px;
+            margin-top: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        button[type="submit"]:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        button[type="submit"]:active {
+            transform: translateY(0);
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group:last-child {
+            margin-bottom: 0;
+        }
+
+        #create-form {
+            text-align: center;
+        }
+
+        #create-form button {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        #create-form button:hover {
+            box-shadow: 0 8px 20px rgba(245, 87, 108, 0.4);
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 24px;
+            }
+
+            h2 {
+                font-size: 24px;
+            }
+
+            form {
+                padding: 16px;
+            }
+        }
+    </style>
+    <script type='module' src='./app.js'></script>
 </head>
 <body>
-  <div id="bar"><pear-ctrl></pear-ctrl></div>
-  <form id="key-form">
-      <label for="connection-key">Connection key</label><input id="connection-key" type="text" placeholder="">
-      <button type="submit">Submit</button>
-  </form>
+<div id="bar">
+    <pear-ctrl></pear-ctrl>
+</div>
+
+<div class="container">
+    <h2>Autobase Manager</h2>
+
+    <form id="folder-form">
+        <div class="form-group">
+            <label for="folder-name">Folder Name</label>
+            <input id="folder-name" type="text" placeholder="Enter folder name">
+        </div>
+        <button type="submit">Create Folder</button>
+    </form>
+
+    <form id="create-form">
+        <button type="submit">Create Autobase</button>
+    </form>
+
+    <form id="key-form">
+        <div class="form-group">
+            <label for="connection-key">Connection Key</label>
+            <input id="connection-key" type="text" placeholder="Enter connection key">
+        </div>
+        <button type="submit">Connect</button>
+    </form>
+
+    <form id="list-form">
+        <div class="form-group">
+            <label for="list">Your List</label>
+            <textarea id="list" placeholder="Enter your list items..."></textarea>
+        </div>
+        <button type="submit">Save List</button>
+    </form>
+</div>
 </body>
 </html>
