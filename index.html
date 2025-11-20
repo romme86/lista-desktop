@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Autobase Manager</title>
+    <title>Lista</title>
     <style>
         * {
             margin: 0;
@@ -11,31 +11,38 @@
             box-sizing: border-box;
         }
 
-        body {
+        :root {
             --title-bar-height: 42px;
+            --bg-dark: #111111;
+            --bg-medium: #1f1f1f;
+            --bg-light: #f5f5f5;
+            --border-subtle: #d4d4d4;
+            --border-strong: #222222;
+            --text-main: #111111;
+            --text-muted: #666666;
+            --accent: #111111;
+            --accent-soft: #333333;
+        }
+
+        body {
             padding-top: var(--title-bar-height);
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: radial-gradient(circle at top, #333333 0, #000000 50%, #000000 100%);
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-        }
-
-        body > h1:nth-of-type(1) {
-            cursor: pointer;
+            color: var(--text-main);
         }
 
         #bar {
-            background: rgba(55, 60, 72, 0.95);
+            background: rgba(15, 15, 15, 0.98);
             backdrop-filter: blur(20px);
             -webkit-app-region: drag;
             height: var(--title-bar-height);
-            padding: 0 20px;
-            border-top-left-radius: 12px;
-            border-top-right-radius: 12px;
-            color: #FFF;
-            white-space: nowrap;
+            padding: 0 16px;
+            border-bottom: 1px solid #2d2d2d;
+            color: #f5f5f5;
             position: fixed;
             z-index: 1000;
             width: 100%;
@@ -43,7 +50,14 @@
             top: 0;
             display: flex;
             align-items: center;
-            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+            justify-content: space-between;
+        }
+
+        #bar-title {
+            font-size: 13px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            opacity: 0.85;
         }
 
         pear-ctrl[data-platform=darwin] {
@@ -52,179 +66,295 @@
         }
 
         .container {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border-radius: 20px;
-            padding: 40px;
-            max-width: 500px;
-            width: 90%;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            animation: slideIn 0.5s ease-out;
+            background: #ffffff;
+            border-radius: 16px;
+            padding: 28px 24px 24px;
+            max-width: 560px;
+            width: 92%;
+            box-shadow:
+                    0 20px 45px rgba(0, 0, 0, 0.55),
+                    0 0 0 1px rgba(255, 255, 255, 0.02);
         }
 
-        @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+        header {
+            margin-bottom: 20px;
         }
 
-        h2 {
-            color: #667eea;
-            margin-bottom: 30px;
-            text-align: center;
-            font-size: 28px;
+        h1 {
+            font-size: 22px;
             font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+        }
+
+        .subtitle {
+            font-size: 13px;
+            color: var(--text-muted);
+            line-height: 1.4;
+        }
+
+        .section {
+            margin-top: 18px;
+            padding-top: 16px;
+            /*border-top: 1px solid #e5e5e5;*/
+        }
+
+        .section:first-of-type {
+            border-top: none;
+            padding-top: 0;
+        }
+
+        .section-title {
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 10px;
         }
 
         form {
-            margin-bottom: 24px;
-            padding: 24px;
-            background: #f8f9fa;
-            border-radius: 12px;
-            border: 2px solid transparent;
-            transition: all 0.3s ease;
-        }
-
-        form:hover {
-            border-color: #667eea;
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.1);
+            margin-bottom: 14px;
+            padding: 14px 14px 16px;
+            background: var(--bg-light);
+            border-radius: 10px;
+            border: 1px solid #e0e0e0;
         }
 
         label {
             display: block;
-            margin-bottom: 8px;
-            color: #4a5568;
-            font-weight: 600;
-            font-size: 14px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+            margin-bottom: 6px;
+            color: #444444;
+            font-weight: 500;
+            font-size: 13px;
+        }
+
+        .label-caption {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 2px;
+            overflow-wrap: break-word;
         }
 
         input[type="text"],
         textarea {
             width: 100%;
-            padding: 12px 16px;
-            border: 2px solid #e2e8f0;
-            border-radius: 8px;
-            font-size: 15px;
-            transition: all 0.3s ease;
+            padding: 10px 12px;
+            border: 1px solid var(--border-subtle);
+            border-radius: 6px;
+            font-size: 14px;
             font-family: inherit;
-            background: white;
+            background: #ffffff;
+            color: var(--text-main);
+            transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+        }
+
+        input[type="text"].mono,
+        textarea.mono {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-size: 13px;
         }
 
         input[type="text"]:focus,
         textarea:focus {
             outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            border-color: var(--border-strong);
+            box-shadow: 0 0 0 1px var(--border-strong);
+            background-color: #ffffff;
         }
 
         textarea {
-            min-height: 120px;
+            min-height: 130px;
             resize: vertical;
         }
 
-        button[type="submit"] {
-            width: 100%;
-            padding: 14px;
-            margin-top: 12px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
+        button[type="submit"],
+        .btn-inline {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 9px 12px;
+            margin-top: 10px;
+            background: var(--accent);
+            color: #f9f9f9;
+            border: 1px solid #000000;
+            border-radius: 7px;
+            font-size: 13px;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.3s ease;
+            letter-spacing: 0.08em;
             text-transform: uppercase;
-            letter-spacing: 1px;
+            transition:
+                    background-color 0.18s ease,
+                    color 0.18s ease,
+                    box-shadow 0.18s ease,
+                    transform 0.08s ease;
+            width: 100%;
         }
 
-        button[type="submit"]:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        button[type="submit"]:hover,
+        .btn-inline:hover {
+            background: var(--accent-soft);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+            transform: translateY(-1px);
         }
 
-        button[type="submit"]:active {
+        button[type="submit"]:active,
+        .btn-inline:active {
             transform: translateY(0);
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        button[type="submit"]:disabled {
+            background: #d3d3d3;
+            border-color: #c0c0c0;
+            color: #777777;
+            cursor: not-allowed;
+            box-shadow: none;
         }
 
         .form-group {
-            margin-bottom: 16px;
+            margin-bottom: 10px;
         }
 
         .form-group:last-child {
             margin-bottom: 0;
         }
 
-        #create-form {
-            text-align: center;
+        .two-column {
+            display: grid;
+            grid-template-columns: 1.1fr 1.3fr;
+            gap: 10px;
         }
 
-        #create-form button {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        .stack-small {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            margin-top: 8px;
+            font-size: 11px;
+            color: var(--text-muted);
         }
 
-        #create-form button:hover {
-            box-shadow: 0 8px 20px rgba(245, 87, 108, 0.4);
+        .stack-small code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            background: #eaeaea;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-size: 11px;
         }
 
-        @media (max-width: 600px) {
+        #status {
+            margin-top: 12px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            background: #f3f3f3;
+            border: 1px dashed #c7c7c7;
+            font-size: 12px;
+            color: var(--text-muted);
+            min-height: 32px;
+        }
+
+        #status strong {
+            color: #222222;
+        }
+
+        #status-log {
+            margin-top: 4px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-size: 11px;
+            max-height: 80px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+
+        @media (max-width: 640px) {
             .container {
-                padding: 24px;
+                padding: 22px 18px 18px;
+                border-radius: 14px;
             }
 
-            h2 {
-                font-size: 24px;
+            h1 {
+                font-size: 19px;
+            }
+
+            .two-column {
+                grid-template-columns: 1fr;
             }
 
             form {
-                padding: 16px;
+                padding: 12px 12px 14px;
+                width: 100%;
+            }
+
+            button[type="submit"] {
+                font-size: 12px;
             }
         }
     </style>
-    <script type='module' src='./app.js'></script>
+    <script type="module" src="./app.js"></script>
 </head>
 <body>
 <div id="bar">
     <pear-ctrl></pear-ctrl>
+    <div id="bar-title">Lista</div>
 </div>
 
 <div class="container">
-    <h2>Autobase Manager</h2>
+    <header>
+        <h1>Lista</h1>
+    </header>
 
-    <form id="folder-form">
-        <div class="form-group">
-            <label for="folder-name">Folder Name</label>
-            <input id="folder-name" type="text" placeholder="Enter folder name">
+    <section class="section">
+        <form id="folder-form">
+            <div class="form-group">
+                <label for="folder-name">Folder name</label>
+                <input id="folder-name" type="text" placeholder="Example: my-autobase-store">
+                <div class="label-caption">
+                    Local storage folder for your Hypercore/Autobase data.
+                </div>
+            </div>
+            <button type="submit">Initialize Storage</button>
+        </form>
+        <div class="two-column">
+            <form id="create-form">
+                <div class="form-group">
+                    <label>Host</label>
+                    <div class="label-caption" id="autobase-label">
+                        Start a new Autobase that other peers can connect to.
+                    </div>
+                </div>
+                <button type="submit">Create Autobase</button>
+            </form>
+            <form id="key-form">
+                <div class="form-group">
+                    <label for="connection-key">Connect to host</label>
+                    <input id="connection-key" class="mono" type="text" placeholder="Paste connection key from host">
+                    <div class="label-caption">
+                        Use this on a guest machine to join an existing Autobase.
+                    </div>
+                </div>
+                <button type="submit">Connect as Guest</button>
+            </form>
         </div>
-        <button type="submit">Create Folder</button>
-    </form>
-
-    <form id="create-form">
-        <button type="submit">Create Autobase</button>
-    </form>
-
-    <form id="key-form">
-        <div class="form-group">
-            <label for="connection-key">Connection Key</label>
-            <input id="connection-key" type="text" placeholder="Enter connection key">
+    </section>
+    <section class="section">
+        <form id="list-form">
+            <div class="form-group">
+                <label for="list">List items</label>
+                <textarea id="list" class="mono" placeholder="Each line will be treated as a separate list item."></textarea>
+            </div>
+            <button type="submit">Save List</button>
+        </form>
+    </section>
+    <section class="section">
+        <div id="status" aria-live="polite">
+            <strong>Idle.</strong> Waiting for Autobase initialization.
+            <div id="status-log"></div>
         </div>
-        <button type="submit">Connect</button>
-    </form>
-
-    <form id="list-form">
-        <div class="form-group">
-            <label for="list">Your List</label>
-            <textarea id="list" placeholder="Enter your list items..."></textarea>
-        </div>
-        <button type="submit">Save List</button>
-    </form>
+    </section>
 </div>
 </body>
 </html>

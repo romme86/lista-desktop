@@ -7,9 +7,12 @@ import Hyperswarm from 'hyperswarm'
 import crypto from 'hypercore-crypto'
 const {teardown, updates} = Pear
 
-let swarm = null
-let store = null
-let autobase = null
+let swarm
+let store
+let autobase
+let chatTopic
+let chatSwarm
+
 
 async function initialize(folder_name) {
     swarm = new Hyperswarm()
@@ -25,6 +28,24 @@ function open(store) {
     })
     console.log('opening store...', view)
     return view
+}
+
+
+
+function setupChatSwarm () {
+    // discoveryKey is 32 bytes, good for Hyperswarm topic
+    chatTopic = crypto.discoveryKey(autobase.key)
+
+    chatSwarm = new Hyperswarm()
+
+    chatSwarm.on('connection', (conn, info) => {
+        console.log('chat connection', info.peer)
+
+        // Start handshake
+        setupHandshakeChannel(conn)
+    })
+
+    chatSwarm.join(chatTopic, { server: true, client: true })
 }
 
 async function apply(nodes, view, host) {
@@ -54,64 +75,50 @@ document.querySelector('#folder-form').addEventListener('submit', async (ev) => 
 
 document.querySelector('#key-form').addEventListener('submit', async (ev) => {
     ev.preventDefault()
-    console.log('submitted connection key')
-    const connectionKeyHex = document.querySelector('#connection-key').value
+
+    const connectionKeyHex = document.querySelector('#connection-key').value.trim()
     const connectionKey = b4a.from(connectionKeyHex, 'hex')
-    if (autobase == null) {
-        autobase = new Autobase(store, connectionKey, {apply, open, valueEncoding: 'json'}, )
+
+    // await initialize(folderName)
+
+    if (!autobase) {
+        autobase = new Autobase(store, connectionKey, { apply, open, valueEncoding: 'json' })
     }
+
     await autobase.ready()
-    console.log('autobase ready, writable? ', autobase.writable, 'local autobase key', autobase.local.key)
-    const topic = autobase.key
-    console.log('autobase connected to ', topic.toString('hex'))
-    const discovery = swarm.join(topic, {server: true, client: true})
-    discovery.flushed()
-    console.log('discovered connection key and connected the swarm to the autobase topic')
-    autobase.on('append', async () => {
-        console.log('appending to autobase')
+    console.log('autobase ready with key...', autobase.key.toString('hex'))
+    document.getElementById('autobase-label').innerHTML = autobase.key.toString('hex')
+
+    const baseTopic = autobase.key
+    swarm.join(baseTopic, { server: true, client: true })
+    swarm.on('connection', (conn, info) => {
+        autobase.replicate(conn, info.client)
     })
-    autobase.on('ready', async () => {
-        console.log('autobase ready')
-    })
-    swarm.on('connection', (connection) => {
-        manageAutobaseConnection(connection, false);
-    })
-    console.log('My writer key (share this with the host):', autobase.local.key.toString('hex'))
-    autobase.append({
-        type: 'add-writer',
-        key: autobase.local.key.toString('hex'),
-    })
+
+    // NEW: start handshake chat swarm
+    setupChatSwarm()
 })
 
 document.querySelector('#create-form').addEventListener('submit', async (ev) => {
     ev.preventDefault()
-    console.log('submitted autobase creation')
-    if (store == null) {
-        console.log('store is null, stopping.')
-        return
-    }
-    if (autobase == null) {
-        autobase = new Autobase(store, null, {apply, open, valueEncoding: 'json'})
+    // await initialize(folderName)
+
+    if (!autobase) {
+        autobase = new Autobase(store, null, { apply, open, valueEncoding: 'json' })
     }
     await autobase.ready()
-    console.log('autobase ready, writable? ', autobase.writable, 'autobase key', autobase.key?.toString('hex'))
-    const topic = autobase.key
-    console.log('autobase connected to ', topic.toString('hex'))
-    const discovery = swarm.join(topic, {server: true, client: true})
-    await discovery.flushed()
-    autobase.on('append', async () => {
-        console.log('appending to autobase')
+    console.log('autobase ready with key...', autobase.key.toString('hex'))
+    document.getElementById('autobase-label').innerHTML = autobase.key.toString('hex')
+
+    // Start replication swarm on base topic (what you already do)
+    const baseTopic = autobase.key
+    swarm.join(baseTopic, { server: true, client: true })
+    swarm.on('connection', (conn, info) => {
+        autobase.replicate(conn, info.client)  // your existing manageAutobaseConnection
     })
-    autobase.on('ready', async () => {
-        console.log('autobase ready')
-    })
-    swarm.on('connection', (connection) => {
-        manageAutobaseConnection(connection, true);
-    })
-    autobase.append({
-        type: 'add-writer',
-        key: autobase.local.key.toString('hex'),
-    })
+
+    // NEW: start handshake chat swarm
+    setupChatSwarm()
 })
 
 
@@ -146,6 +153,69 @@ function valueToList(nodeValue) {
     return '';
 }
 
+function sendHandshakeMessage (conn, msg) {
+    const line = JSON.stringify(msg) + '\n'
+    conn.write(line)
+}
+
+function setupHandshakeChannel (conn) {
+    // 1) Immediately send *our* writer key
+    const myWriterKeyHex = autobase.local.key.toString('hex')
+    sendHandshakeMessage(conn, {
+        type: 'writer-key',
+        key: myWriterKeyHex,
+    })
+
+    // 2) Parse incoming JSON lines
+    let buffer = ''
+    conn.on('data', (chunk) => {
+        buffer += chunk.toString()
+        let idx
+        while ((idx = buffer.indexOf('\n')) !== -1) {
+            const line = buffer.slice(0, idx)
+            buffer = buffer.slice(idx + 1)
+            if (!line.trim()) continue
+
+            let msg
+            try {
+                msg = JSON.parse(line)
+            } catch (e) {
+                console.warn('invalid JSON from peer:', line)
+                continue
+            }
+
+            handleHandshakeMessage(msg)
+        }
+    })
+}
+
+
+const knownWriters = new Set()
+
+async function handleHandshakeMessage (msg) {
+    if (!msg || msg.type !== 'writer-key') return
+
+    const remoteKeyHex = msg.key
+    if (!remoteKeyHex || typeof remoteKeyHex !== 'string') return
+
+    if (knownWriters.has(remoteKeyHex)) return
+    knownWriters.add(remoteKeyHex)
+
+    // Only a writer can add other writers.
+    if (!autobase.writable) {
+        console.log('Not writable here, cannot add remote writer yet')
+        return
+    }
+
+    console.log('Adding remote writer via autobase:', remoteKeyHex)
+
+    await autobase.append({
+        type: 'add-writer',
+        key: remoteKeyHex,
+    })
+}
+
+
 function convertListToArray(textareaValue) {
     return textareaValue
         .split('\n')
@@ -165,8 +235,8 @@ document.querySelector('#list-form').addEventListener('submit', async (ev) => {
         return
     }
     if (autobase.writable === false) {
-        console.log('autobase is not writable, stopping.')
-        alert('You are currently read-only on this Autobase. The creator must grant you write access.')
+        console.log('autobase is not writable, waiting for the owner to grant write access.')
+        alert('Waiting for the owner to grant write access.')
         return
     }
 
