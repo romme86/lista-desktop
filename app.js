@@ -1,20 +1,15 @@
 /** @typedef {import('pear-interface')} */ /* global Pear */
 // Pear.updates(() => Pear.reload())
-
-
 import b4a from 'b4a'
 import Autobase from 'autobase'
 import Corestore from 'corestore'
 import Hyperswarm from 'hyperswarm'
 import crypto from 'hypercore-crypto'
-// import Buffer from "b4a";
 const {teardown, updates} = Pear
-
 
 let swarm = null
 let store = null
 let autobase = null
-let writerKey = null
 
 async function initialize(folder_name) {
     swarm = new Hyperswarm()
@@ -24,39 +19,29 @@ async function initialize(folder_name) {
 }
 
 function open(store) {
-    console.log('opening store...', store.get('test'))
-    return store.get('test')
+    const view = store.get({
+        name: 'view',
+        valueEncoding: 'json',
+    })
+    console.log('opening store...', view)
+    return view
 }
 
 async function apply(nodes, view, host) {
     console.log('applying nodes on guest', nodes)
-    console.log('is autobase writable?', autobase.writable)
     for (const {value} of nodes) {
-        console.log(b4a.toString(value))
-        if (writerKey != null) {
-            console.log('writer key is not null', writerKey)
-            const bufferWriterKey = Buffer.from(writerKey, 'hex')
-            await host.addWriter(bufferWriterKey, {indexer: true});
-            console.log('autobase writable now?', autobase.writable, 'host address', host)
-            continue;
+        if (value.type === 'add-writer') {
+            console.log("adding writer", value.key)
+            await host.addWriter(Buffer.from(value.key, 'hex'), { indexer: true })
+            continue
         }
-        document.getElementById("list").value = valueToList(value)
-        await view.append(value)
-    }
-}
-
-async function apply_creator(nodes, view, host) {
-    console.log('applying nodes on owner', nodes)
-    for (const {value} of nodes) {
-        console.log(b4a.toString(value))
-        if (writerKey != null) {
-            console.log('writer key is not null', writerKey)
-            const bufferWriterKey = Buffer.from(writerKey, 'hex')
-            await host.addWriter(bufferWriterKey, {indexer: true});
-            console.log('autobase writable now?', autobase.writable, 'host address', host)
-            continue;
+        if (value.type === 'list') {
+            console.log("adding list to the textarea", value)
+            const textarea = document.getElementById("list")
+            textarea.value = valueToList(value)
+            await view.append(value)
+            console.log('is autobase writable?', autobase.writable)
         }
-        await view.append(value)
     }
 }
 
@@ -70,9 +55,10 @@ document.querySelector('#folder-form').addEventListener('submit', async (ev) => 
 document.querySelector('#key-form').addEventListener('submit', async (ev) => {
     ev.preventDefault()
     console.log('submitted connection key')
-    const connectionKey = document.querySelector('#connection-key').value
+    const connectionKeyHex = document.querySelector('#connection-key').value
+    const connectionKey = b4a.from(connectionKeyHex, 'hex')
     if (autobase == null) {
-        autobase = new Autobase(store, connectionKey, {apply, open})
+        autobase = new Autobase(store, connectionKey, {apply, open, valueEncoding: 'json'}, )
     }
     await autobase.ready()
     console.log('autobase ready, writable? ', autobase.writable, 'local autobase key', autobase.local.key)
@@ -83,7 +69,6 @@ document.querySelector('#key-form').addEventListener('submit', async (ev) => {
     console.log('discovered connection key and connected the swarm to the autobase topic')
     autobase.on('append', async () => {
         console.log('appending to autobase')
-        // refresh frontend?
     })
     autobase.on('ready', async () => {
         console.log('autobase ready')
@@ -91,7 +76,11 @@ document.querySelector('#key-form').addEventListener('submit', async (ev) => {
     swarm.on('connection', (connection) => {
         manageAutobaseConnection(connection, false);
     })
-
+    console.log('My writer key (share this with the host):', autobase.local.key.toString('hex'))
+    autobase.append({
+        type: 'add-writer',
+        key: autobase.local.key.toString('hex'),
+    })
 })
 
 document.querySelector('#create-form').addEventListener('submit', async (ev) => {
@@ -102,7 +91,7 @@ document.querySelector('#create-form').addEventListener('submit', async (ev) => 
         return
     }
     if (autobase == null) {
-        autobase = new Autobase(store, null, {apply_creator, open})
+        autobase = new Autobase(store, null, {apply, open, valueEncoding: 'json'})
     }
     await autobase.ready()
     console.log('autobase ready, writable? ', autobase.writable, 'autobase key', autobase.key?.toString('hex'))
@@ -116,9 +105,12 @@ document.querySelector('#create-form').addEventListener('submit', async (ev) => 
     autobase.on('ready', async () => {
         console.log('autobase ready')
     })
-
     swarm.on('connection', (connection) => {
         manageAutobaseConnection(connection, true);
+    })
+    autobase.append({
+        type: 'add-writer',
+        key: autobase.local.key.toString('hex'),
     })
 })
 
@@ -126,45 +118,39 @@ document.querySelector('#create-form').addEventListener('submit', async (ev) => 
 function manageAutobaseConnection(connection, initiator) {
     console.log('swarming with peer', connection)
     autobase.replicate(connection, initiator)
-    let buffer = b4a.alloc(0);
-    const localKey = b4a.toString(autobase.local.key, 'hex');
-    connection.write(JSON.stringify({
-        type: 'writer-key',
-        key: localKey,
-    }) + '\n');
-    connection.on('data', async (data) => {
-        buffer = b4a.concat([buffer, data]);
-        const str = b4a.toString(buffer, 'utf8');
-        const lines = str.split('\n');
-        const incomplete = lines.pop();
-        buffer = b4a.from(incomplete || '');
-        for (const line of lines) {
-            if (!line.trim()) continue;
-            const msg = JSON.parse(line);
-            if (msg.type === 'writer-key') {
-                writerKey = msg.key;
-                console.log('saved writer-key', msg.key);
+}
+
+function valueToList(nodeValue) {
+    // Expecting: { type: 'list', items: string[] } or items as JSON string
+    const items = nodeValue.items;
+
+    // If items is already an array (recommended)
+    if (Array.isArray(items)) {
+        return items.join('\n');
+    }
+
+    // If items is a JSON string (for backward compatibility)
+    if (typeof items === 'string') {
+        try {
+            const parsed = JSON.parse(items);
+            if (Array.isArray(parsed)) {
+                return parsed.join('\n');
             }
+            return String(items);
+        } catch (e) {
+            // Not valid JSON, just show raw string
+            return String(items);
         }
-    })
+    }
+
+    return '';
 }
 
-function valueToList(valueFromAutobase) {
-    const jsonParsed = JSON.parse(valueFromAutobase);
-    console.log('textAreaValue', jsonParsed, typeof jsonParsed)
-    const valueToList = jsonParsed.replace("[", "").replace("]", "").replaceAll("\"", "").replaceAll(",", "");
-    console.log('cleanValue', valueToList)
-    return valueToList
-}
-
-function convertListToJSON(textareaValue) {
-    // Split by newlines and filter out empty lines
-    const lines = textareaValue
+function convertListToArray(textareaValue) {
+    return textareaValue
         .split('\n')
         .map(line => line.trim())
         .filter(line => line.length > 0);
-
-    return JSON.stringify(lines, null, 2);
 }
 
 document.querySelector('#list-form').addEventListener('submit', async (ev) => {
@@ -180,19 +166,16 @@ document.querySelector('#list-form').addEventListener('submit', async (ev) => {
     }
     if (autobase.writable === false) {
         console.log('autobase is not writable, stopping.')
+        alert('You are currently read-only on this Autobase. The creator must grant you write access.')
         return
     }
-    // append the new list to the autobase
 
     const textareavalue = document.getElementById("list").value
     console.log('textareavalue', textareavalue)
-    const textareavalueJSON = convertListToJSON(textareavalue)
+    const items = convertListToArray(textareavalue)
 
-    await autobase.append(Buffer.from(JSON.stringify(textareavalueJSON)))
-
-
+    await autobase.append({
+        type: 'list',
+        items,
+    })
 })
-
-// teardown(() => swarm.destroy())
-// updates(() => Pear.reload())
-
