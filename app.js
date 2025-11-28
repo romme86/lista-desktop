@@ -13,7 +13,25 @@ let autobase
 let chatTopic
 let chatSwarm
 
+// Simple in-memory view for mobile-style items
+const remoteItems = new Map()
 
+function updateTextareaFromRemoteItems () {
+    const textarea = document.getElementById('list')
+    if (!textarea) return
+
+    const items = Array.from(remoteItems.values())
+
+    // Example ordering: not-done first, then done; oldest first
+    items.sort((a, b) => {
+        if (!!a.isDone === !!b.isDone) {
+            return (a.timestamp || 0) - (b.timestamp || 0)
+        }
+        return a.isDone - b.isDone  // false (0) before true (1)
+    })
+
+    textarea.value = items.map((i) => i.text).join('\n')
+}
 async function initialize(folder_name) {
     swarm = new Hyperswarm()
     store = new Corestore(`./${folder_name}`)
@@ -49,46 +67,59 @@ function setupChatSwarm () {
     chatSwarm.join(chatTopic, { server: true, client: true })
 }
 
-async function apply(nodes, view, host) {
+async function apply (nodes, view, host) {
     console.log('applying nodes on guest', nodes)
-    for (const {value} of nodes) {
+    for (const { value } of nodes) {
+        if (!value) continue
+
+        // 1) writer membership (desktop + mobile compatible)
         if (value.type === 'add-writer') {
-            console.log("adding writer", value.key)
-            await host.addWriter(Buffer.from(value.key, 'hex'), { indexer: false })
+            console.log('adding writer', value.key)
+            await host.addWriter(Buffer.from(value.key, 'hex'), { indexer: false }) // safer than true
             continue
         }
+
+        // 2) Desktop’s own "full list" ops
         if (value.type === 'list') {
-            console.log("adding list to the textarea", value)
-            const textarea = document.getElementById("list")
-            textarea.value = valueToList(value)
+            console.log('adding list to the textarea', value)
+            const textarea = document.getElementById('list')
+            if (textarea) {
+                textarea.value = valueToList(value)
+            }
             await view.append(value)
             console.log('is autobase writable?', autobase.writable)
+            continue
         }
-        if (value.type === 'add') {
-            console.log("adding item to the textarea", value)
-            const textarea = document.getElementById("list")
-            textarea.value = valueToList(value)
+
+        // 3) Mobile-style item ops: { type: 'add' | 'update' | 'delete', value: { ...item } }
+        if (value.type === 'add' || value.type === 'update' || value.type === 'delete') {
+            const item = value.value
+            if (!item || typeof item.text !== 'string') {
+                console.warn('Received mobile op with invalid item:', value)
+                continue
+            }
+
+            const id = item.id || item.text // fallback if id missing
+
+            switch (value.type) {
+                case 'add':
+                case 'update':
+                    remoteItems.set(id, item)
+                    break
+                case 'delete':
+                    remoteItems.delete(id)
+                    break
+            }
+
+            // After applying the op, reflect mobile list in the textarea
+            updateTextareaFromRemoteItems()
+            // Optionally append to view so history keeps everything
             await view.append(value)
+            continue
         }
-        if (value.type === 'update') {
-            console.log("update item to the textarea", value)
-            const textarea = document.getElementById("list")
-            const newTextareaValue = textarea.value.replace(
-                new RegExp(`^${value.oldItem}$`, 'm'),
-                value.newItem
-            )
-            textarea.value = newTextareaValue
-            await view.append(value)
-        }
-        if (value.type === 'delete') {
-            console.log("delete item into the textarea", value)
-            const textarea = document.getElementById("list")
-            textarea.value = textarea.value
-                .split('\n')
-                .filter(line => line.trim() !== value.item)
-                .join('\n')
-            await view.append(value)
-        }
+
+        // 4) Anything else: just append so the log isn't lost
+        await view.append(value)
     }
 }
 
