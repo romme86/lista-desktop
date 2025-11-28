@@ -1,10 +1,10 @@
-/** @typedef {import('pear-interface')} */ /* global Pear */
+/** @typedef {import('pear-interface')} */  /* global Pear */
 // Pear.updates(() => Pear.reload())
 import b4a from 'b4a'
 import Autobase from 'autobase'
 import Corestore from 'corestore'
 import Hyperswarm from 'hyperswarm'
-import crypto from 'hypercore-crypto'
+
 const {teardown, updates} = Pear
 
 let swarm
@@ -34,7 +34,8 @@ function open(store) {
 
 function setupChatSwarm () {
     // discoveryKey is 32 bytes, good for Hyperswarm topic
-    chatTopic = crypto.discoveryKey(autobase.key)
+    // chatTopic = crypto.discoveryKey(autobase.key)
+    chatTopic = autobase.key
 
     chatSwarm = new Hyperswarm()
 
@@ -53,7 +54,7 @@ async function apply(nodes, view, host) {
     for (const {value} of nodes) {
         if (value.type === 'add-writer') {
             console.log("adding writer", value.key)
-            await host.addWriter(Buffer.from(value.key, 'hex'), { indexer: true })
+            await host.addWriter(Buffer.from(value.key, 'hex'), { indexer: false })
             continue
         }
         if (value.type === 'list') {
@@ -62,6 +63,31 @@ async function apply(nodes, view, host) {
             textarea.value = valueToList(value)
             await view.append(value)
             console.log('is autobase writable?', autobase.writable)
+        }
+        if (value.type === 'add') {
+            console.log("adding item to the textarea", value)
+            const textarea = document.getElementById("list")
+            textarea.value = valueToList(value)
+            await view.append(value)
+        }
+        if (value.type === 'update') {
+            console.log("update item to the textarea", value)
+            const textarea = document.getElementById("list")
+            const newTextareaValue = textarea.value.replace(
+                new RegExp(`^${value.oldItem}$`, 'm'),
+                value.newItem
+            )
+            textarea.value = newTextareaValue
+            await view.append(value)
+        }
+        if (value.type === 'delete') {
+            console.log("delete item into the textarea", value)
+            const textarea = document.getElementById("list")
+            textarea.value = textarea.value
+                .split('\n')
+                .filter(line => line.trim() !== value.item)
+                .join('\n')
+            await view.append(value)
         }
     }
 }
